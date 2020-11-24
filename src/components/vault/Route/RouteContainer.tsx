@@ -97,6 +97,7 @@ const RouteContainer: React.FunctionComponent<IRouteContainerProps> = (props) =>
         </div>
       ) : (
         <RoutePage
+          key={currentRoute.id}
           route={currentRoute}
           routes={routes}
           routeSaveHandler={(r: IRoute) => routeSaveHandler(r)}

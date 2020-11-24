@@ -118,13 +118,13 @@ export const Route: React.FC<IInboundRouteProps> = (props) => {
   const getEntryHeader = (entry: IEntry, idx: number): JSX.Element => {
     return (
       <div
-        className={classNames({ removing: activeItem === idx },
-                              'row no-gutters justify-content-between align-items-center progress-filter ')}
+        className={classNames(
+          { removing: activeItem === idx },
+          'd-flex justify-content-between align-items-center progress-filter',
+        )}
       >
-        <div className="col-11">
-          <RouteEntrySummary entry={entry} />
-        </div>
-        <div className="col-1 d-flex">
+        <RouteEntrySummary entry={entry} />
+        <div className="d-flex ml-3">
           {!entry.removing &&
           <Popover
             placement="top"

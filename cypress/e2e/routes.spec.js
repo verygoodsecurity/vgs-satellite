@@ -59,4 +59,49 @@ describe('Localhoste route flow', function() {
 
     cy.contains('There are currently no routes');
   });
+
+  it('Checks route diff', function() {
+    cy.visit('/routes');
+    cy.wait('@getRoutes');
+
+    cy.get('[data-role="add-on-all-routes"]').contains('Add Route').click({ force: true });
+    cy.get('[data-role="new-inbound-route"]').contains('Inbound route').click();
+    cy.url().should('contain', '/new/inbound');
+    cy.get('[data-role="edit-route-name"]').clear().type('route-1');
+    cy.get('[data-role="edit-route-save-button"]').contains('Save').click({ force: true });
+    cy.wait(['@getRoutes']);
+    cy.get('.iziToast').contains('Route created successfully');
+
+    cy.get('[data-role="add-on-all-routes"]').contains('Add Route').click({ force: true });
+    cy.get('[data-role="new-outbound-route"]').contains('Outbound route').click();
+    cy.url().should('contain', '/new/outbound');
+    cy.get('[data-role="edit-route-name"]').clear().type('route-2');
+    cy.get('[data-role="edit-route-save-button"]').contains('Save').click({ force: true });
+    cy.wait(['@getRoutes']);
+    cy.get('.iziToast').contains('Route created successfully');
+    
+    cy.get('.tab-pane.active [data-role="route-item"]').should('have.length', 2);
+    cy.get('.tab-pane.active [data-role="routes-list-inbound"] [data-role="route-item"]').should('have.length', 1);
+    cy.get('.tab-pane.active [data-role="routes-list-inbound"] [data-role="route-item"] [data-role="route-item-name-value"]').contains('route-1');
+    cy.get('.tab-pane.active [data-role="routes-list-inbound"] [data-role="route-item"] [data-role="route-item-manage-route-button"]').click();
+    cy.get('[data-role="edit-route-name"]').should('have.value', 'route-1');
+    cy.get('[data-role="edit-route-save-button"]').should('have.attr', 'disabled');
+    cy.get('button').contains('Cancel').click({ force: true });
+    
+    cy.get('.tab-pane.active [data-role="routes-list-outbound"] [data-role="route-item"]').should('have.length', 1);
+    cy.get('.tab-pane.active [data-role="routes-list-outbound"] [data-role="route-item"] [data-role="route-item-name-value"]').contains('route-2');
+    cy.get('.tab-pane.active [data-role="routes-list-outbound"] [data-role="route-item"] [data-role="route-item-manage-route-button"]').click();
+    cy.get('[data-role="edit-route-name"]').should('have.value', 'route-2');
+    cy.get('[data-role="edit-route-save-button"]').should('have.attr', 'disabled');
+    cy.get('[data-role="edit-route-name"]').clear().type('route-updated');
+    cy.get('[data-role="edit-route-save-button"]').should('not.have.attr', 'disabled');
+    cy.get('[data-role="edit-route-save-button"]').click();
+    cy.get('.diffsnippet').should('be.visible');
+    cy.get('.diffsnippet').should('not.contain', 'route-1');
+    cy.get('.diffsnippet').should('contain', 'route-2');
+    cy.get('.diffsnippet').should('contain', 'route-updated');
+
+    cy.get('.ant-modal-footer button').contains('Cancel').click({ force: true });
+    cy.get('[data-role="edit-route-form"] button').contains('Cancel').click({ force: true });
+  });
 });
