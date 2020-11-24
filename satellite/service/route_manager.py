@@ -53,16 +53,32 @@ def update(route_id: str, route_data: dict) -> Route:
 
     update_model(route, route_data)
 
-    rule_entries = {entry.id: entry for entry in route.rule_entries_list}
-    for rule_data in route_data.get('rule_entries_list', []):
-        rule_id = rule_data.get('id')
-        rule = rule_id is not None and rule_entries.get(rule_id)
-        if rule:
-            update_model(rule, rule_data, ['id'])
-        else:
-            route.rule_entries_list.append(RuleEntry(**rule_data))
-
     session = get_session()
+
+    # Do filters CRUD only if they are mentioned in the request
+    if 'rule_entries_list' in route_data:
+        current_filters = {entry.id: entry for entry in route.rule_entries_list}
+        target_filters = []
+        target_filters_ids = set()
+        filters_data = route_data['rule_entries_list'] or []
+        for filter_data in filters_data:
+            filter = None
+            filter_id = filter_data.get('id')
+            if filter_id is not None:
+                filter = current_filters.get(filter_id)
+            if filter:
+                update_model(filter, filter_data, ['id'])
+            else:
+                filter = RuleEntry(**filter_data)
+            target_filters.append(filter)
+            target_filters_ids.add(filter.id)
+
+        for filter in route.rule_entries_list:
+            if filter.id not in target_filters_ids:
+                session.delete(filter)
+
+        route.rule_entries_list = target_filters
+
     try:
         session.commit()
     except Exception:

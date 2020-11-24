@@ -1,5 +1,4 @@
 import json
-import uuid
 
 from copy import deepcopy
 from unittest.mock import Mock, patch
@@ -8,6 +7,7 @@ from freezegun import freeze_time
 
 from satellite.db import get_session
 from satellite.db.models.route import Route
+from satellite.schemas.route import RuleEntrySchema
 
 from ..factories import RouteFactory, RuleEntryFactory
 from .base import BaseHandlerTestCase
@@ -88,21 +88,14 @@ class TestRoutesHandler(BaseHandlerTestCase):
         session.commit()
 
     def test_get(self):
-        get_all_patch = patch(
-            'satellite.controller.route_handlers.route_manager.get_all',
-            Mock(return_value=[
-                RouteFactory(
-                    id='2c813c5a-be1b-487f-816d-d692aea96852',
-                    rule_entries_list=[
-                        RuleEntryFactory(
-                            id='8e6d779a-1f57-4b89-8c0b-579d933f783c',
-                        ),
-                    ]
-                )
-            ]),
+        RouteFactory(
+            id='2c813c5a-be1b-487f-816d-d692aea96852',
+            rule_entries_list=[
+                RuleEntryFactory(
+                    id='8e6d779a-1f57-4b89-8c0b-579d933f783c',
+                ),
+            ]
         )
-        get_all_patch.start()
-        self.addCleanup(get_all_patch.stop)
 
         response = self.fetch(self.get_url('/route'))
 
@@ -136,22 +129,16 @@ class TestRouteHandler(BaseHandlerTestCase):
         session.commit()
 
     def test_get(self):
-        route_id = str(uuid.uuid4())
-        get_route = patch(
-            'satellite.controller.route_handlers.route_manager.get',
-            Mock(return_value=RouteFactory(
-                id='2c813c5a-be1b-487f-816d-d692aea96852',
-                rule_entries_list=[
-                    RuleEntryFactory(
-                        id='8e6d779a-1f57-4b89-8c0b-579d933f783c',
-                    ),
-                ]
-            )),
+        route = RouteFactory(
+            id='2c813c5a-be1b-487f-816d-d692aea96852',
+            rule_entries_list=[
+                RuleEntryFactory(
+                    id='8e6d779a-1f57-4b89-8c0b-579d933f783c',
+                ),
+            ]
         )
-        get_route.start()
-        self.addCleanup(get_route.stop)
 
-        response = self.fetch(self.get_url(f'/route/{route_id}'))
+        response = self.fetch(self.get_url(f'/route/{route.id}'))
 
         self.assertEqual(response.code, 200)
         self.assertMatchSnapshot(json.loads(response.body))
@@ -168,23 +155,24 @@ class TestRouteHandler(BaseHandlerTestCase):
             ],
         )
 
+        update_data = {
+            'data': {
+                'attributes': {
+                    'host_endpoint': r'example\.com',
+                    'entries': RuleEntrySchema().dump(
+                        route.rule_entries_list,
+                        many=True,
+                    ),
+                },
+                'type': 'rule-chains',
+            }
+        }
+        update_data['data']['attributes']['entries'][0]['phase'] = 'RESPONSE'
+
         response = self.fetch(
             self.get_url(f'/route/{route.id}'),
             method='PUT',
-            body=json.dumps({
-                'data': {
-                    'attributes': {
-                        'host_endpoint': r'example\.com',
-                        'entries': [
-                            {
-                                'id': '4066ca33-e740-4b48-bbe9-80cb77e971e7',
-                                'phase': 'RESPONSE',
-                            }
-                        ],
-                    },
-                    'type': 'rule-chains',
-                }
-            }),
+            body=json.dumps(update_data),
         )
 
         self.assertEqual(response.code, 200, response.body)
@@ -230,6 +218,7 @@ class TestRouteHandler(BaseHandlerTestCase):
                 'data': {
                     'attributes': {
                         'entries': [
+                            RuleEntrySchema().dump(route.rule_entries_list[0]),
                             {
                                 'targets': ['body'],
                                 'phase': 'REQUEST',
@@ -276,3 +265,67 @@ class TestRouteHandler(BaseHandlerTestCase):
 
         self.assertEqual(response.code, 200, response.body)
         self.assertMatchSnapshot(json.loads(response.body))
+
+    def test_put_delete_single_filter(self):
+        route = RouteFactory(
+            id='2c813c5a-be1b-487f-816d-d692aea96852',
+            rule_entries_list=[
+                RuleEntryFactory(id='8e6d779a-1f57-4b89-8c0b-579d933f783c'),
+                RuleEntryFactory(id='4066ca33-e740-4b48-bbe9-80cb77e971e7'),
+            ],
+        )
+
+        update_data = {
+            'data': {
+                'attributes': {
+                    'entries': [
+                        RuleEntrySchema().dump(route.rule_entries_list[0]),
+                    ],
+                },
+                'type': 'rule-chains',
+            }
+        }
+
+        response = self.fetch(
+            self.get_url(f'/route/{route.id}'),
+            method='PUT',
+            body=json.dumps(update_data),
+        )
+        response_data = json.loads(response.body)
+
+        self.assertEqual(response.code, 200, response.body)
+        self.assertEqual(len(response_data['entries']), 1)
+        self.assertEqual(
+            response_data['entries'][0]['id'],
+            '8e6d779a-1f57-4b89-8c0b-579d933f783c',
+        )
+        self.assertMatchSnapshot(response_data)
+
+    def test_put_delete_all_filters(self):
+        route = RouteFactory(
+            id='2c813c5a-be1b-487f-816d-d692aea96852',
+            rule_entries_list=[
+                RuleEntryFactory(id='8e6d779a-1f57-4b89-8c0b-579d933f783c'),
+                RuleEntryFactory(id='4066ca33-e740-4b48-bbe9-80cb77e971e7'),
+            ],
+        )
+
+        update_data = {
+            'data': {
+                'attributes': {
+                    'entries': [],
+                },
+                'type': 'rule-chains',
+            }
+        }
+
+        response = self.fetch(
+            self.get_url(f'/route/{route.id}'),
+            method='PUT',
+            body=json.dumps(update_data),
+        )
+        response_data = json.loads(response.body)
+
+        self.assertEqual(response.code, 200, response.body)
+        self.assertEqual(len(response_data['entries']), 0)
+        self.assertMatchSnapshot(response_data)
