@@ -7,21 +7,17 @@
 
 
 <!-- toc -->
-* [Prerequisites](#prerequisites)
 * [Description](#description)
 * [How to start application](#how-to-start-application)
-    * [Configurations](#configurations)
-* [How to use](#how-to-use)
-    * [How to generate route](#how-to-generate-route)
-    * [How to manage routes](#how-to-manage-routes)
-* [Reverse proxy mode](#reverse-proxy-mode)
-* [Open-source](#open-source)
+    * [Using the source code](#using-the-source-code)
+    * [Using the Docker image](#using-the-docker-image)
+    * [Using the Electron app](#using-the-electron-app)
+* [Developer notes](#developer-notes)
+    * [Python dependencies](#python-dependencies)
+    * [Running tests](#running-tests)
+    * [Docker](#docker)
+    * [Electron](#electron)
 <!-- tocstop -->
-
-## Prerequisites
-
-- python =>3.8.0 (python --version)
-- npm =>6.14.0 (npm --version)
 
 ## Description
 
@@ -30,172 +26,194 @@ VGS Satellite is an application that can ease your integration with Very Good Se
 VGS Satellite provides:
 
     - Demo VGS Vault capabilities
-    - Redact/reveal functinality
-    - JSON payload request/response transformer
+    - Redact/reveal functionality
+    - HTTP request/response payload transformer
     - Route configuration generator according to specific request
     - Route configuration editor
     - Logging
-    - Man-in-the-middle proxy functionality (request incertept/replay/edit/etc)
+    - Man-in-the-middle proxy functionality (request intercept/replay/edit/etc)
 
 This  application gives you an ability to run requests with your service and transform them into suitable VGS route configuration
 without any need to sign up.
 
-_Note: VGS Satellite is in beta right now and is being run in electron development mode. Going forward VGS Satellite would be a bundled up executable._
+VGS Satellite's core depends on [mitmproxy](https://github.com/mitmproxy/mitmproxy/).
+**mitmproxy** or man-in-the-middle proxy is an interactive intercepting proxy with ton of build-in functionalities and protocol support.
+VGS Satellite is provided as a Open Source product under Apache License v2.0
 
 ## How to start application
 
 ### Using the source code
-1. Clone sources
-    ```bash
-        git clone git@github.com:verygoodsecurity/vgs-satellite.git && cd vgs-satellite
-    ```
 
-1. Install dependencies
+_Note: If you are not interested in contributing to VGS Satellite and don't need the latest (not released) changes you can just proceed to the more user-friendly ways of launching the app such as using the [Docker image](#docker-image) or the [Electron app](#electron-app)._
 
-   ```bash
-       npm ci
-   ```
+Assuming you have the right versions of Python (`3.8.*`), npm (`6.14.*`) and node (`14.15.*`):
+```bash
+> git clone git@github.com:verygoodsecurity/vgs-satellite.git && cd vgs-satellite
+vgs-satellite> npm ci
+vgs-satellite> npm run start
+```
 
+After the app is up and running you can visit `localhost:1234` to start configuring your routes.
 
-1. Run application...
+Example request to the reverse proxy:
+```bash
+curl http://localhost:9098/post -H "Content-type: application/json" -d '{"foo": "bar"}'
+```
 
-    ```bash
-       npm run start:app
-    ```
+Example request to the forward proxy:
+```bash
+curl https://httpbin.org/post -k -x localhost:9099 -H "Content-type: application/json" -d '{"foo": "bar"}'
+```
 
-   _Note: This would run application in electron locally. If you need to run in browser use `npm start`_
+#### The core app
 
-### Using Docker
-1. Pull the image
-    ```bash
-    docker pull verygood/satellite
-    ```
-2. Start a container
-    ```bash
-    docker run --rm -v $HOME/.vgs-satellite/:/data -p 8089:8089 -p 9098:9098 -p 9099:9099 -p 1234:1234 verygood/satellite
-    ```
-    _Note: You can use any directory you like to mount `/data` volume - just make sure the directory exists before you start a container_
+The core of the VGS Satellite is a Python app providing 3 services:
 
-## How to use
+1. Reverse proxy - use it for your inbound traffic
+2. Forward proxy - use it for your outbound traffic
+3. Management API which is used for routes configuration and request/response examination
 
-When started VGS Satellite runs 2 proxies:
-    - reverse proxy (default port: 9098)
-    ![reverse-proxy](https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Reverse_proxy_h2g2bob.svg/1920px-Reverse_proxy_h2g2bob.svg.png)
-    - forward proxy (default port: 9099)
-    ![forward-proxy](https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Open_proxy_h2g2bob.svg/1920px-Open_proxy_h2g2bob.svg.png)
+The Python app can be run separately as:
+```bash
+vgs-satellite> python app.py
+```
 
-_Note: Reverse proxy is started with dummy upstream, and can be used only when at least 1 inbound route is created_
+The core app can be configured via command line arguments, environment variables or a YAML config file. You can always get available configuration parameters invoking the app with `--help` option:
+```bash
+vgs-satellite> python app.py --help
+Usage: app.py [OPTIONS]
 
-### Configurations
+Options:
+  --debug                         [env:SATELLITE_DEBUG] (default:False) Debug
+                                  mode.
 
-Satellite support following parameters:
+  --web-server-port INTEGER       [env:SATELLITE_API_PORT] (default:8089) API
+                                  port.
 
-- `web_server_port` - ports that is used by backend webservice (default: 8089)
-- `reverse_proxy_port` - reverse proxy port (default: 9098)
-- `forward_proxy_port` - forward proxy port (default: 9099)
+  --reverse-proxy-port INTEGER    [env:SATELLITE_REVERSE_PROXY_PORT] (default:
+                                  9098) Reverse proxy port.
 
-You can override default values using configuration file. Default location for config file is `~/.vgs-satellite/config.yml`
-You can find config file example at `config.yml-example`
+  --forward-proxy-port INTEGER    [env:SATELLITE_FORWARD_PROXY_PORT]
+                                  (default:9099) Forward proxy port.
 
-You can also override them using command line arguments:
+  --config-path FILE              [env:SATELLITE_CONFIG_PATH]
+                                  (default:$HOME/.vgs-satellite/config.yml)
+                                  Path to the config YAML file.
 
-- `--web-server-port` - ports that is used by backend webservice
-- `--reverse-proxy-port` - reverse proxy port
-- `--forward-proxy-port` - forward proxy port
-- `--config-path` - path for config file.
+  --db-path FILE                  [env:SATELLITE_DB_PATH] (default:$HOME/.vgs-
+                                  satellite/db.sqlite) Path to the DB file.
 
-Overriding priority from highest priority to lowest is:
+  --log-path FILE                 [env:SATELLITE_LOG_PATH] (default:None) Path
+                                  to a log file.
 
-Command argument -> Configuration file -> Default value
+  --silent                        [env:SATELLITE_SILENT] (default:False) Do
+                                  not log into stdout.
 
+  --volatile-aliases-ttl INTEGER  [env:VOLATILE_ALIASES_TTL] (default:3600)
+                                  TTL for volatile aliases in seconds.
 
-### How to generate inbound route
+  --routes-path FILE              [env:SATELLITE_ROUTES_PATH] (default:None)
+                                  Path to a routes config YAML file. If
+                                  provided all the current  routes present in
+                                  Satellite DB will be deleted.
 
-Lets use inbound route for redact scenario
+  --help                          Show this message and exit.
+```
 
-1. Navigate to routes page and click `Add route` -> `Inbound route`
+Command line arguments take precedence over environment variables. Environment variables take precedence over the config file.
 
-   ![add-route](manual/in-1-route-create.png)
+Upon the first launch VGS Satellite directory is created. By default the directory is `$HOME/.vgs-satellite` which can be changed via environment variable `SATELLITE_DIR`. By default VGS Satellite directory is used to store the DB file (where your routes are persisted) and is a default location where the app will search for the config file. Both of these paths (DB and config) can be changed via corresponding config parameters.
 
-1. Add upstream, for example `interactive-form.herokuapp.com` and click `Save`
+#### UI
 
-   ![route-upstream](manual/in-2-route-upstream.png)
+VGS Satellite UI is a SPA served separately via node server (except when using the [Electron app](#electron-app)).
 
-1. Visit `localhost:9098` and make request you want to secure or make request directly to `localhost:9098`
+You can run the UI separately (assuming the core app is already started) as:
+```bash
+vgs-satellite> npm run serve
+```
 
-  _Note: If you are using `interactive-form.herokuapp.com` as an upstream, click `Fill`, then `Place Order`_
+_Caveat: Although you can change the API port, UI will still try to use the default value (8089). We will fix this eventually but currently it is what it is._
 
-  ![interactive-demo](manual/in-3-interactive-demo.png)
+### Using the Docker image
+Pull the image
+```bash
+docker pull verygood/satellite
+```
 
-1. Find your request in requests list and click it
+Start a container
+```bash
+docker run --rm -v $HOME/.vgs-satellite/:/data -p 8089:8089 -p 9098:9098 -p 9099:9099 -p 1234:1234 verygood/satellite
+```
+_Note: You can use any directory you like to mount `/data` volume - just make sure the directory exists before you start a container._
 
-  _Note: For our example we take `/payment` request_
+### Using the Electron app
+VGS Satellite is available as an Electron app (for Linux and Mac). You can find the latest release versions of the app on the GitHub [releases page](https://github.com/verygoodsecurity/vgs-satellite/releases).
 
-  ![secure-request](manual/in-4-request-list.png)
+## Developer notes
 
-  ![request-details](manual/in-5-request.png)
+### Python dependencies
+Do not add Python dependencies directly to `requirements.txt`. Instead add them to `requirements.in` and run:
+```bash
+vgs-satellite> make pin_requirements
+```
 
-1. Pick field that needs to be secured click `Secure this payload` -> `View route configuration` -> `Save inbound route`
+If you want to upgrade Python dependencies run:
+```bash
+vgs-satellite> make upgrade_requirements
+```
 
-  ![secure-payload](manual/in-6-secure.png)
+### Running tests
+Unit tests for the core app can be run as:
+```bash
+vgs-satellite> make test
+```
 
-1. Visit routes page and delete route created on step #2
+Before submitting a PR it is worth to run
+```bash
+vgs-satellite> make check
+```
+The above command
+1. Runs the linter app over Python source code (we use flake8).
+2. Runs Python unit tests.
+3. Builds the Python distribution (used for the Electron app).
+4. Tests the Python distribution built in the previous step.
 
-1. Choose your request in requests list and click `Replay`
+UI tests can be run as:
+```bash
+vgs-satellite> npm run test
+```
+The above command
+1. Starts both the core and UI apps.
+2. Runs Cypress tests.
 
-   Navigate to request one more time and click `Body`.
+### Docker
+The docker image can be built locally by running:
+```bash
+vgs-satellite> make docker_image
+```
 
-  ![diff-checker](manual/in-7-diff.png)
+Publishing of the image is done via:
+```bash
+vgs-satellite> make docker_publish
+```
 
-  Your payload has been secured!
+### Electron
+In order to ship the core as part of the Electron app we "freeze" it with [PyInstaller](https://github.com/pyinstaller/pyinstaller). To build the Python distribution run:
+```bash
+vgs-satellite> make dist
+```
 
+Usually PyInstaller does a good job guessing what should be included in the final distribution but sometimes some guidance is needed (see `dist` Make-target for details). It's always a good idea to test the distribution before pushing your changes:
+```bash
+vgs-satellite> make test_dist
+```
 
-
-### How to generate outbound route
-
-Lets use outbound route to reveal previously redacted payload scenario
-
-This scenario will help you generate an outbound route using your request, made to a forward proxy
-
-1. Run some request with alias, proxying it through forward proxy. For example:
-    ```bash
-    curl http://httpbin.org/post -k -x localhost:9099 -H "Content-type: application/json" -d '{"foo": "tok_sat_m8bMGyxWD82NJZSvjqayem"}'
-    ```
-1. Wait for your requests to appear
-
-   ![requests-list](manual/1-requests-list.png)
-
-1. Choose your request from the list
-
-   ![requests-detail](manual/2-requests-detail.png)
-
-1. Click secure you payload
-
-   ![secure-payload](manual/3-secure-payload.png)
-
-1. Check field you would like to reveal, choose `Reveal` in `Operation` dropdown.
-
-   ![secure-check](manual/4-secure-check.png)
-
-    For additional setting please reference the [nomenclature](https://www.verygoodsecurity.com/docs/terminology/nomenclature)
-
-1. Click `Secure this payload` -> `View route configuration`-> `Save outbound route`
-
-    Your route is now available on `Routes` page. You can edit/delete it or import another one from YAML.
-
-    ![routes-page](manual/6-routes.png)
-
-1. Re-send request from #3 or navigate to your request on `Requests` and click `Replay`
-
-    ![replay-request](manual/7-replay.png)
-
-1. Click on the replayed request and click `Body` tab. You will see that your payload was redacted.
-
-    ![diff-viewer](manual/8-diffviewer.png)
-
-
-## Open-source
-
-VGS Satellite's core depends on [mitmproxy](https://github.com/mitmproxy/mitmproxy/).
-**mitmproxy** or man-in-the-middle proxy is an interactive intercepting proxy with ton of build-in functionalities and protocol support.
-VGS Satellite is provided as a Open Source product under Apache License v2.0
+The Electron app can be build locally by running:
+```bash
+vgs-satellite> npm run electron:build
+```
+On Mac the build process includes signing/notarizing steps which can be disabled by setting `CSC_IDENTITY_AUTO_DISCOVERY` environment variable to `false`.
+```bash
+vgs-satellite> CSC_IDENTITY_AUTO_DISCOVERY=false npm run electron:build
+```

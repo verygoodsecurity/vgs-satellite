@@ -10,64 +10,107 @@ from tblib import pickling_support
 from satellite import db
 from satellite import logging as satellite_logging
 from satellite.aliases.store import AliasStore
-from satellite.config import InvalidConfigError, configure, init_satellite_dir
+from satellite.config import (
+    InvalidConfigError,
+    SatelliteConfig,
+    configure,
+    init_satellite_dir,
+)
 from satellite.routes.loaders import LoadError, load_from_yaml
 from satellite.web_application import WebApplication
 
 
+DEFAULT_CONFIG = SatelliteConfig()
+
+
+# Do not put default values for non-flag options. Othervice other config
+# sources (env and config file) will be ignored.
 @click.command()
-@click.option('--debug', is_flag=True, default=None, envvar='SATELLITE_DEBUG')
-@click.option('--web-server-port', type=int, envvar='SATELLITE_API_PORT')
+@click.option(
+    '--debug',
+    is_flag=True,
+    default=None,
+    envvar='SATELLITE_DEBUG',
+    help=f'[env:SATELLITE_DEBUG] (default:{DEFAULT_CONFIG.debug}) Debug mode.'
+)
+@click.option(
+    '--web-server-port',  # TODO: Rename to --api-port
+    type=int,
+    envvar='SATELLITE_API_PORT',
+    help=f'[env:SATELLITE_API_PORT] (default:{DEFAULT_CONFIG.web_server_port}) API port. ',
+)
 @click.option(
     '--reverse-proxy-port',
     type=int,
     envvar='SATELLITE_REVERSE_PROXY_PORT',
+    help=(
+        '[env:SATELLITE_REVERSE_PROXY_PORT] '
+        f'(default: {DEFAULT_CONFIG.reverse_proxy_port}) Reverse proxy port.'
+    ),
 )
 @click.option(
     '--forward-proxy-port',
     type=int,
     envvar='SATELLITE_FORWARD_PROXY_PORT',
+    help=(
+        '[env:SATELLITE_FORWARD_PROXY_PORT] '
+        f'(default:{DEFAULT_CONFIG.forward_proxy_port}) Forward proxy port.'
+    ),
 )
 @click.option(
     '--config-path',
     type=click.Path(exists=True, dir_okay=False),
-    help='Path to a VGS Satellite config YAML file.',
     envvar='SATELLITE_CONFIG_PATH',
+    help=(
+        '[env:SATELLITE_CONFIG_PATH] (default:$HOME/.vgs-satellite/config.yml) '
+        'Path to the config YAML file.'
+    ),
 )
 @click.option(
     '--db-path',
     type=click.Path(dir_okay=False),
-    help='Path to the VGS Satellite DB file.',
     envvar='SATELLITE_DB_PATH',
+    help=(
+        '[env:SATELLITE_DB_PATH] (default:$HOME/.vgs-satellite/db.sqlite) '
+        'Path to the DB file.'
+    ),
 )
 @click.option(
     '--log-path',
     type=click.Path(dir_okay=False),
-    help='Path to a log file. If omitted log messages will appear only in stdout.',
     envvar='SATELLITE_LOG_PATH',
+    help=('[env:SATELLITE_LOG_PATH] (default:None) Path to a log file.'),
 )
 @click.option(
     '--silent',
     is_flag=True,
     default=None,
-    help='Do not log into stdout.',
     envvar='SATELLITE_SILENT',
+    help=(
+        f'[env:SATELLITE_SILENT] (default:{DEFAULT_CONFIG.silent}) '
+        'Do not log into stdout.'
+    ),
 )
 @click.option(
     '--volatile-aliases-ttl',
     type=int,
     default=None,
-    help='TTL for volatile aliases in seconds. Default is 3600 (1 hour).',
     envvar='VOLATILE_ALIASES_TTL',
+    help=(
+        f'[env:VOLATILE_ALIASES_TTL] (default:{DEFAULT_CONFIG.volatile_aliases_ttl}) '
+        'TTL for volatile aliases in seconds.'
+    ),
 )
 @click.option(
     '--routes-path',
     type=click.Path(exists=True, dir_okay=False),
-    help=(
-        'Path to a routes config YAML file. If provided all the current '
-        'routes present in Satellite DB will be deleted.'
-    ),
     envvar='SATELLITE_ROUTES_PATH',
+    help=(
+        '[env:SATELLITE_ROUTES_PATH] (default:None) Path to a routes config '
+        'YAML file. If provided all the current  routes present in Satellite '
+        'DB will be deleted.'
+    ),
+
 )
 def main(**kwargs):
     set_start_method('fork')  # PyInstaller supports only fork start method
