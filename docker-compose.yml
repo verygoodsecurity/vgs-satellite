@@ -1,0 +1,12 @@
+version: "3.2"
+services:
+  satellite:
+    container_name: vgs-satellite
+    image: verygood/satellite
+    ports:
+      - 8089:8089
+      - 9098:9098
+      - 9099:9099
+      - 1234:1234
+    volumes:
+      - ~/.vgs-satellite:/data
