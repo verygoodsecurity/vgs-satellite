@@ -18,6 +18,7 @@
     * [DB management](#db-management)
     * [Docker](#docker)
     * [Electron](#electron)
+    * [Release process](#release-process)
 <!-- tocstop -->
 
 ## Description
@@ -234,3 +235,10 @@ On Mac the build process includes signing/notarizing steps which can be disabled
 ```bash
 vgs-satellite> CSC_IDENTITY_AUTO_DISCOVERY=false npm run electron:build
 ```
+
+### Release process
+Make sure `package.json` has the right `version` set - the version you're going to release. To initiate the release process run:
+```
+vgs-satellite> npm run release
+```
+This pushes a GIT-tag named after the version and triggers the release CI-job. If everything went well a draft GH-release is created and a new Docker image is pushed. Finally you can add/review release notes and publish the GH release.
