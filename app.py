@@ -23,7 +23,7 @@ from satellite.web_application import WebApplication
 DEFAULT_CONFIG = SatelliteConfig()
 
 
-# Do not put default values for non-flag options. Othervice other config
+# Do not put default values for non-flag options. Otherwise other config
 # sources (env and config file) will be ignored.
 @click.command()
 @click.option(
