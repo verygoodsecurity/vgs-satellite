@@ -50,11 +50,13 @@ def init():
         try:
             command.upgrade(alembic_cfg, 'head')
         except CommandError as exc:
+            db_path = str(get_engine().url).replace('sqlite:///', '')
             if str(exc).startswith("Can't locate revision identified by"):
                 raise DBVersionMismatch(
                     'Looks like DB version is newer than version of the app. '
-                    'Please update the app or reset the DB (by removing the '
-                    'DB file or pointing the app to an another DB file path).'
+                    'Please update the app or reset the DB by removing the '
+                    f'DB file ({db_path}) or pointing the app to an another DB '
+                    'file path.'
                 ) from exc
             raise
     else:

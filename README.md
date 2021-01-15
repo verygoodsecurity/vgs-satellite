@@ -15,6 +15,7 @@
 * [Developer notes](#developer-notes)
     * [Python dependencies](#python-dependencies)
     * [Running tests](#running-tests)
+    * [DB management](#db-management)
     * [Docker](#docker)
     * [Electron](#electron)
 <!-- tocstop -->
@@ -192,6 +193,16 @@ vgs-satellite> npm run test
 The above command
 1. Starts both the core and UI apps.
 2. Runs Cypress tests.
+
+### DB management
+Routes configuration is stored in a SQLite DB. For DB migrations management we use [Alembic](https://alembic.sqlalchemy.org). Migrations are applied to the DB automatically when the core app is started.
+
+To generate a new migration run:
+```bash
+vgs-satellite> PYTHONPATH=. alembic revision --autogenerate -m "Describe your changes here."
+```
+
+There is a good chance that migration generated for your model changes will not work as is due to SQLite limited nature. Usually Alembic [batch operations](https://alembic.sqlalchemy.org/en/latest/batch.html) help in such situations.
 
 ### Docker
 The docker image can be built locally by running:
